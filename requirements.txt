@@ -1,0 +1,3 @@
+python-dotenv
+pandas
+crewai>=0.50.0
