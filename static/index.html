@@ -1,0 +1,325 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Sales Data Analyzer</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <style>
+    :root{
+      --bg:#0b1220;--card:#0f172a;--muted:#94a3b8;--text:#e5e7eb;--border:#1f2937;--accent:#60a5fa;
+      --mono:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,"Liberation Mono",monospace;
+      --thead:#0d1426; --rowstripe:rgba(255,255,255,.03);
+    }
+    *{box-sizing:border-box}
+    html,body{background:var(--bg);color:var(--text);margin:0}
+    .wrap{max-width:1200px;margin:0 auto;padding:28px 18px 80px}
+
+    h1{font-size:22px;margin:6px 0 4px}
+    h2{font-size:15px;margin:0 0 8px;color:#dbeafe}
+    .muted{color:var(--muted);font-size:13px}
+    .pill{display:inline-block;padding:2px 8px;border-radius:999px;border:1px solid var(--border);font-size:12px;color:var(--muted)}
+    .row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+    .card{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:14px}
+    textarea,input{width:100%;background:#0b1020;color:var(--text);border:1px solid var(--border);border-radius:10px;padding:10px}
+    button{background:var(--accent);color:#06121e;border:none;padding:8px 12px;border-radius:10px;cursor:pointer;font-weight:600}
+    button:disabled{opacity:.6;cursor:not-allowed}
+    .toolbar{display:flex;gap:8px;align-items:center;justify-content:flex-end}
+
+    /* GRID: header spans both columns; content row has left (wider) + right (narrow) */
+    .grid{display:grid;grid-template-columns:1.8fr 0.9fr;gap:20px;margin-top:14px;align-items:start}
+    .header{grid-column:1/-1;display:flex;justify-content:space-between;align-items:flex-end;gap:12px;flex-wrap:wrap}
+    @media (max-width:1000px){.grid{grid-template-columns:1fr}.sidebar{position:static}}
+
+    /* LEFT COLUMN: dataset on top, ask below */
+    .leftCol{display:flex;flex-direction:column;gap:20px}
+
+    /* RIGHT COLUMN: outputs; sticky aligned with table top */
+    .sidebar{display:flex;flex-direction:column;gap:16px;position:sticky;top:0}
+
+    /* Output boxes: smaller fixed height + scroll */
+    .pre{
+      white-space:pre-wrap;background:#0b1020;border:1px solid var(--border);border-radius:10px;padding:10px;
+      font-family:var(--mono);font-size:13px;line-height:1.35;max-height:160px;height:160px;overflow:auto;
+    }
+
+    /* DATASET TABLE (two-table technique; header/body synced via JS) */
+    .tablewrap{border:1px solid var(--border);border-radius:10px;overflow:hidden}
+    .table-head{overflow:hidden;background:var(--thead);border-bottom:1px solid var(--border);padding-right:0}
+    .table-body{max-height:62vh;overflow:auto} /* primary pane height */
+    table{width:100%;border-collapse:separate;border-spacing:0;font-size:13px}
+    thead th{text-align:left;font-weight:600;color:#e2e8f0;padding:10px 12px}
+    tbody td{padding:10px 12px;border-bottom:1px solid var(--border);vertical-align:top;word-break:break-word}
+    tbody tr:nth-child(odd){ background:var(--rowstripe) }
+    thead th + th, tbody td + td{ border-left:1px solid rgba(255,255,255,.04) }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="grid">
+      <!-- Header spans both columns -->
+      <div class="header">
+        <div>
+          <h1>Sales Data Analyzer</h1>
+          <div class="muted">Preview your dataset, ask a question, and see each pipeline stage.</div>
+        </div>
+        <div class="pill" id="modepill">mode: …</div>
+      </div>
+
+      <!-- LEFT COLUMN -->
+      <div class="leftCol">
+        <!-- Dataset -->
+        <section class="card">
+          <h2>Dataset Preview</h2>
+          <div class="row" style="gap:12px;margin-bottom:6px;">
+            <span class="pill" id="totalRows">rows: …</span>
+            <span class="pill">limit: <span id="limitDisp">50</span></span>
+          </div>
+          <div class="row" style="margin:10px 0 8px;">
+            <input id="limit" type="number" min="1" max="500" value="50" style="max-width:160px" />
+            <button id="reload">Reload</button>
+          </div>
+          <div class="tablewrap">
+            <div class="table-head" id="tableHeadWrap"><table id="table-head"><thead><tr id="thead"></tr></thead></table></div>
+            <div class="table-body" id="tableBodyWrap"><table id="table-body"><tbody id="tbody"></tbody></table></div>
+          </div>
+        </section>
+
+        <!-- Ask below the table -->
+        <section class="card">
+          <h2>Ask a Question</h2>
+          <textarea id="q" placeholder="e.g. which product sold the most, or paste a JSON instruction"></textarea>
+          <div class="row" style="margin-top:8px;">
+            <button id="run">Run</button>
+          </div>
+        </section>
+      </div>
+
+      <!-- RIGHT COLUMN: outputs -->
+      <div class="sidebar">
+        <section class="card">
+          <div class="row" style="justify-content:space-between;align-items:center;">
+            <h2 style="margin:0">Validator JSON</h2>
+            <div class="toolbar"><button id="copyValidator" title="Copy">Copy</button></div>
+          </div>
+          <div class="pre" id="validator"></div>
+        </section>
+
+        <section class="card">
+          <div class="row" style="justify-content:space-between;align-items:center;">
+            <h2 style="margin:0">Data Analyst Output</h2>
+            <div class="toolbar"><button id="copyTool" title="Copy">Copy</button></div>
+          </div>
+          <div class="pre" id="toolOut"></div>
+        </section>
+
+        <section class="card">
+          <div class="row" style="justify-content:space-between;align-items:center;">
+            <h2 style="margin:0">Insights</h2>
+            <div class="toolbar"><button id="copyInsights" title="Copy">Copy</button></div>
+          </div>
+          <div class="pre" id="insights"></div>
+        </section>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const modepill = document.getElementById('modepill');
+    const runBtn = document.getElementById('run');
+    const qEl = document.getElementById('q');
+    const validatorEl = document.getElementById('validator');
+    const toolOutEl = document.getElementById('toolOut');
+    const insightsEl = document.getElementById('insights');
+
+    const copyValidatorBtn = document.getElementById('copyValidator');
+    const copyToolBtn = document.getElementById('copyTool');
+    const copyInsightsBtn = document.getElementById('copyInsights');
+
+    const limitInput = document.getElementById('limit');
+    const limitDisp = document.getElementById('limitDisp');
+    const reloadBtn = document.getElementById('reload');
+
+    const thead = document.getElementById('thead');
+    const tbody = document.getElementById('tbody');
+    const headTable = document.getElementById('table-head');
+    const bodyTable = document.getElementById('table-body');
+    const headWrap = document.getElementById('tableHeadWrap');
+    const bodyWrap = document.getElementById('tableBodyWrap');
+
+    async function safeJson(res){
+      const ctype = (res.headers.get('content-type')||'').toLowerCase();
+      const txt = await res.text();
+      if(!ctype.includes('application/json')){
+        throw new Error(`Expected JSON but got ${ctype||'unknown'}: ${txt.slice(0,200)}`);
+      }
+      try{ return JSON.parse(txt); }
+      catch(e){ throw new Error(`Invalid JSON: ${e.message}. Raw: ${txt.slice(0,200)}`); }
+    }
+
+    function clearColgroups(){
+      const hcg = headTable.querySelector('colgroup'); if(hcg) hcg.remove();
+      const bcg = bodyTable.querySelector('colgroup'); if(bcg) bcg.remove();  /* <-- fixed */
+    }
+    function applyColgroup(table, widths){
+      const cg = document.createElement('colgroup');
+      widths.forEach(w=>{
+        const col = document.createElement('col');
+        col.style.width = w + 'px';
+        cg.appendChild(col);
+      });
+      table.insertBefore(cg, table.firstChild);
+    }
+    function syncWidths(){
+      clearColgroups();
+      headWrap.style.paddingRight = '0px';
+
+      const headCells = Array.from(headTable.querySelectorAll('thead th'));
+      const rows = Array.from(bodyTable.querySelectorAll('tbody tr'));
+      const sampleRows = rows.slice(0, 50);
+      const colCount = headCells.length;
+
+      const widths = new Array(colCount).fill(0);
+      for(let i=0;i<colCount;i++){
+        widths[i] = Math.max(widths[i], headCells[i]?.offsetWidth || 0);
+      }
+      for(const r of sampleRows){
+        const cells = r.children;
+        for(let i=0;i<colCount;i++){
+          const w = cells[i]?.offsetWidth || 0;
+          if (w > widths[i]) widths[i] = w;
+        }
+      }
+      for(let i=0;i<colCount;i++){
+        widths[i] = Math.max(widths[i], 120);
+      }
+      applyColgroup(headTable, widths);
+      applyColgroup(bodyTable, widths);
+      const scw = bodyWrap.offsetWidth - bodyWrap.clientWidth;
+      headWrap.style.paddingRight = scw + 'px';
+    }
+
+    function renderTable(cols, rows){
+      thead.innerHTML = '';
+      const thr = document.createElement('tr');
+      for(const c of cols){
+        const th = document.createElement('th');
+        th.textContent = c;
+        thr.appendChild(th);
+      }
+      thead.appendChild(thr);
+
+      tbody.innerHTML = '';
+      for(const r of rows){
+        const tr = document.createElement('tr');
+        for(const cell of r){
+          const td = document.createElement('td');
+          td.textContent = (cell ?? '');
+          tr.appendChild(td);
+        }
+        tbody.appendChild(tr);
+      }
+      requestAnimationFrame(()=> syncWidths());
+    }
+
+    async function loadDataset(){
+      const limit = Math.max(1, Math.min(500, parseInt(limitInput.value||'50', 10)));
+      limitDisp.textContent = limit;
+      try{
+        const res = await fetch(`/dataset?limit=${limit}`, { cache:'no-store' });
+        const data = await safeJson(res);
+        if(!res.ok) throw new Error(data.error || 'Failed to load dataset');
+        document.getElementById('totalRows').textContent = `rows: ${data.total_rows}`;
+        renderTable(data.columns, data.rows);
+      }catch(err){
+        console.error(err);
+        renderTable(['error'], [[err.message]]);
+      }
+    }
+
+    function prettyOrRaw(text){
+      try{ return JSON.stringify(JSON.parse(text), null, 2); }
+      catch(_){ return text; }
+    }
+
+    function copyText(el){
+      const txt = el.textContent || '';
+      if(!navigator.clipboard){
+        const ta = document.createElement('textarea'); ta.value = txt;
+        document.body.appendChild(ta); ta.select(); document.execCommand('copy'); document.body.removeChild(ta);
+      } else {
+        navigator.clipboard.writeText(txt);
+      }
+    }
+
+    // events
+    reloadBtn.addEventListener('click', loadDataset);
+    window.addEventListener('resize', ()=> requestAnimationFrame(syncWidths));
+
+    copyValidatorBtn.addEventListener('click', ()=> copyText(validatorEl));
+    copyToolBtn.addEventListener('click', ()=> copyText(toolOutEl));
+    copyInsightsBtn.addEventListener('click', ()=> copyText(insightsEl));
+
+    runBtn.addEventListener('click', async ()=>{
+      const question = qEl.value.trim();
+      if(!question) return;
+
+      runBtn.disabled = true;
+      runBtn.textContent = 'Running…';
+      validatorEl.textContent = '…';
+      toolOutEl.textContent = '…';
+      insightsEl.textContent = '…';
+
+      try{
+        const res = await fetch('/ask', {
+          method:'POST',
+          headers:{'Content-Type':'application/json'},
+          body: JSON.stringify({ question })
+        });
+        const data = await safeJson(res);
+        if(!res.ok) throw new Error(data.error || 'Request failed');
+
+        modepill.textContent = `mode: ${data.mode}`;
+        validatorEl.textContent = prettyOrRaw(data.validator || '');
+        toolOutEl.textContent = data.tool_output || '';
+        insightsEl.textContent = data.insights || '';
+
+        validatorEl.scrollTop = 0; toolOutEl.scrollTop = 0; insightsEl.scrollTop = 0;
+      }catch(err){
+        console.error(err);
+        validatorEl.textContent = '';
+        toolOutEl.textContent = '';
+        insightsEl.textContent = 'Error: ' + err.message;
+      }finally{
+        runBtn.disabled = false;
+        runBtn.textContent = 'Run';
+      }
+    });
+
+    /* ---------- INITIAL LOAD ---------- */
+    (function init(){
+      const start = () => {
+        loadDataset();
+        if (document.fonts && document.fonts.ready) {
+          document.fonts.ready.then(()=> requestAnimationFrame(syncWidths));
+        } else {
+          setTimeout(()=> requestAnimationFrame(syncWidths), 100);
+        }
+      };
+      if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', start, { once:true });
+      } else {
+        start();
+      }
+    })();
+  </script>
+</body>
+</html>
+
+
+
+
+
+
+
+
+
