@@ -70,17 +70,36 @@ def run_offline(question: str):
 
 def main():
     print("🤖 CrewAI Sales Data Analyzer")
-    question = input("Ask your question:\n> ").strip()
-    if not question:
-        print("No question provided. Exiting.")
-        return
+    online = bool(os.getenv("OPENAI_API_KEY"))
 
-    if not os.getenv("OPENAI_API_KEY"):
-        run_offline(question); return
+    # Create agents once if we're online; reuse across questions
+    if online:
+        validator, data_analyst, insights_agent = make_agents()
 
-    validator, data_analyst, insights_agent = make_agents()
-    tasks = create_tasks(question, validator, data_analyst, insights_agent)
-    crew = Crew(agents=[validator, data_analyst, insights_agent], tasks=tasks, process=Process.sequential, verbose=True)
-    result = crew.kickoff()
-    print("\n--- Final Answer ---")
-    print(result)
+    while True:
+        try:
+            question = input("\nAsk a question about the dataset:\n> ").strip()
+        except (KeyboardInterrupt, EOFError):
+            print("\nBye!")
+            break
+
+        if not question or question.lower() in {"q", "quit", "exit"}:
+            print("Bye!")
+            break
+
+        try:
+            if not online:
+                run_offline(question)
+            else:
+                tasks = create_tasks(question, validator, data_analyst, insights_agent)
+                crew = Crew(
+                    agents=[validator, data_analyst, insights_agent],
+                    tasks=tasks,
+                    process=Process.sequential,
+                    verbose=True,
+                )
+                result = crew.kickoff()
+                print("\n--- Final Answer ---")
+                print(result)
+        except Exception as e:
+            print(f"\nError: {e}")
