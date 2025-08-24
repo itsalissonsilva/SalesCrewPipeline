@@ -36,26 +36,32 @@ Python dependencies are baked into the image (for reference):
    mkdir -p data
    # Put your CSV here
    # data/sales.csv
+   ```
 
 2. **Create your .env**
+   ```env
+   OPENAI_API_KEY=sk-...            # required
+   SALES_CSV=/data/sales.csv        # path inside the container (matches the volume in compose)
+   ```
 
-OPENAI_API_KEY=sk-...            # required
-SALES_CSV=/data/sales.csv        # path inside the container (matches the volume in compose)
+---
 
+## Run with Docker Compose
 
-Create compose.yaml (repo root)
-
-services:
-  app:
-    build: .
-    env_file: .env
-    stdin_open: true   # keep STDIN open for the CLI
-    tty: true          # allocate a TTY
-    volumes:
-      - ./data:/data:ro
-
-
-Run with Docker compose
-
+```bash
 docker compose build
 docker compose run --rm app
+```
+
+You should see
+
+```bash
+🤖 CrewAI Sales Data Analyzer
+Ask a question about the dataset:
+>
+```
+Try:
+
+- which product sold the most
+
+- which location had the highest sales
