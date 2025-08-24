@@ -1,18 +1,18 @@
-# Minimal, works anywhere
+# syntax=docker/dockerfile:1.7-labs
 FROM python:3.11-slim
 
 WORKDIR /app
 
-# Install deps first for better build caching
+# Install deps first (cacheable) — use pip cache + prefer wheels
 COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+RUN --mount=type=cache,target=/root/.cache/pip \
+    python -m pip install --upgrade pip && \
+    pip install --prefer-binary -r requirements.txt
 
 # Copy app
 COPY . .
 
-# Default port used by sales_ai.server
 ENV PORT=5000
 EXPOSE 5000
 
-# Start the server (no extra process manager needed)
 CMD ["python", "-m", "sales_ai.server"]
