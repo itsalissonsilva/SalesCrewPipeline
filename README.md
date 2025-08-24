@@ -1,8 +1,8 @@
+# SalesCrewPipeline
+
 <p align="center">
   <img src="sales-pipeline.png" alt="SalesCrewPipeline diagram" width="760">
 </p>
-
-# SalesCrewPipeline
 
 CLI app that analyzes a `sales.csv` with a 3-step CrewAI pipeline:
 
