@@ -1,4 +1,4 @@
-# SalesCrewPipeline (UI)
+# SalesCrewPipeline
 
 <p align="center">
   <img src="sales-pipeline.png" alt="SalesCrewPipeline diagram" width="760">
@@ -38,5 +38,22 @@ Python dependencies baked into the image (for reference):
 1. **Place your dataset**
    ```bash
    mkdir -p data
-   # Put your CSV here:
+   # Put your CSV here
    # data/sales.csv
+   ```
+
+2. **Create your .env**
+   ```env
+   OPENAI_API_KEY=sk-...            # required
+   SALES_CSV=/data/sales.csv        # path inside the container (matches the volume in compose)
+   PORT=5000
+   ```
+
+---
+
+## Run with Docker Compose
+
+```bash
+docker compose build
+docker compose up
+```
