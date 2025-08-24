@@ -57,3 +57,12 @@ Python dependencies baked into the image (for reference):
 docker compose build
 docker compose up
 ```
+Open the web app and wait for the interface to load before asking a question.
+
+---
+
+Try:
+
+- which product sold the most
+
+- which location had the highest sales
