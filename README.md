@@ -8,7 +8,7 @@ CLI app that analyzes a `sales.csv` with a 3-step CrewAI pipeline:
 
 1) **Validator** → turns your question into a compact JSON instruction  
 2) **Data Analyst** → runs the instruction against the CSV  
-3) **Business Insights** → summarizes the result
+3) **Business Anslyst Insights** → summarizes the result
 
 ---
 
